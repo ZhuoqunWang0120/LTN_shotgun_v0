@@ -1,4 +1,5 @@
-source('src/LTN/mixed_effects_shotgun.R')
+# source('src/LTN/mixed_effects_shotgun.R')
+source('src/LTN/mixed_effects_shotgun_uncentered_glasso.R')
 source('src/LTN/utils.R')
 library(ape)
 library(mvtnorm)
@@ -50,12 +51,12 @@ cnt = t(apply(prob, 1, function(x){rmultinom(1,total_count,x)}))
 yyl = apply(cnt,1,function(x){count2y(x,tree)})
 Y = do.call(rbind,lapply(yyl,function(x)x$Y))
 YL = do.call(rbind,lapply(yyl,function(x)x$YL))
-
+lambda_mat = matrix(rep(10, d^2),d,d)
+# diag(lambda_mat) = rep(0.00001, d)
 # fit model
 g1 = gibbs_shotgun(N = N,
                    p = d,
                    g = g,
-                   r = 0,
                    YL = YL,
                    Y = Y,
                    tlr_marker_len = tlr_marker_len,
@@ -63,11 +64,12 @@ g1 = gibbs_shotgun(N = N,
                    Xadjust = Xadjust,
                    adjust = T,
                    grouplabel = refflabel,
-                   niter = 500,
+                   niter = 2000,
                    reff = T,
                    gprior_m = 100,
                    reffcov = 2,
-                   lambda_fixed = 10,
+                   lambda_fixed = lambda_mat,
+                   # lambda_fixed = 10,
                    verbose = T)
 BETA1 = data.frame(do.call(rbind,g1$BETA1))
 PMAP = apply(abs(BETA1) > .Machine$double.xmin, 2, mean)
@@ -80,4 +82,9 @@ BETA1[,'iteration'] = 1:nrow(BETA1)
 ggplot(melt(BETA1, id.vars = 'iteration')) + geom_line(aes(x = iteration, y = value)) + facet_wrap(~variable)
 BETA2_mean = Reduce('+',g1$BETA2)/length(g1$BETA2)
 print(BETA2_mean)
-
+OMEGA = g1$OMEGA2
+omega_post = Reduce('+', OMEGA)/length(OMEGA)
+round(omega_post,1)
+plot(unlist(lapply(OMEGA,function(x){x[1,1]})),type='l')
+# why is omega[1,1] so weird when lambda_ii are small, but normal(but biased) when lambda==10?
+# check whether all lambda = 10 in the new implementation yield similar result as the previous one
