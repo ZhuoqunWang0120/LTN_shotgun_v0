@@ -21,7 +21,7 @@
 gibbs_shotgun = function(N,
                             p,
                             g = NULL,
-                            r,
+                            r = 0,
                             YL,
                             Y,
                             tlr_marker_len,
@@ -220,6 +220,7 @@ gibbs_shotgun = function(N,
         }
         OMEGA2[[it]] = omega2
         LAM2[[it]] = lam2
+        print(LAM2)
       }
     }
     # update psi

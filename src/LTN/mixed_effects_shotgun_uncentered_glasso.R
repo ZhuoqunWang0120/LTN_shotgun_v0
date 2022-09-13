@@ -3,11 +3,10 @@
 #' @param N number of samples
 #' @param p number of internal nodes
 #' @param g number of levels of the random effect. e.g., if the random effect is individual, then g is number of individuals
-#' @param r number of latent factors (unwarranted feature)
 #' @param Y N*d matrix of y(A)
 #' @param Xtest N*q1 design matrix of the covariate to test, q1 should be the number of groups-1. For the two-group problem, Xtest is a column vector.
 #' @param Xadjust N*q2 design matrix of the covariate to adjust, should include a column of 1's
-#' @param refflabel vector of random effect labels with length g, e.g., subject ID.
+#' @param refflabel vector of random effect labels with length g, e.g., subject ID. # nolint
 #' @param c0,d0,c1,d1,nu hyperparameters
 #' @param niter number of Gibbs iterations
 #' @param SEED random seed for initializing parameters
@@ -21,7 +20,6 @@
 gibbs_shotgun = function(N,
                             p,
                             g = NULL,
-                            r,
                             YL,
                             Y,
                             tlr_marker_len,
@@ -39,10 +37,10 @@ gibbs_shotgun = function(N,
                             reffcov = 1,
                             SEED = 1,
                             save_alpha_only = F,
-                            gprior_m = 1,
+                            gprior_m = 10,
                             pnull = 0.5,
-                            a1=3,
-                            a2=4,
+                            a1 = 3,
+                            a2 = 4,
                             a1a2='hp',
                             lambda_fixed,
                             verbose = F) {
@@ -65,17 +63,18 @@ gibbs_shotgun = function(N,
       PHI_GAM = NULL
       omega2 = stats::rWishart(1, p + 2, diag(p))[, , 1]
       OMEGA2 = list(omega2)
-      if (lambda_fixed>0){
-        lam2 = lambda_fixed
-      }else{
-        lam2=1
-      }
-      LAM2 = lam2
+      # if (lambda_fixed>0){
+      #   lam2 = lambda_fixed
+      # }else{
+      #   lam2=1
+      # }
+      lam2 = lambda_fixed
+      LAM2 = list(lam2)
       tau2 = matrix(0, nrow = p, ncol = p)
       for (l in 2:p) {
         for (k in 1:(l - 1)) {
-          mu_prime = abs(lam2/ omega2[k, l])
-          ukl = statmod::rinvgauss(1, mu_prime, lam2 ^ 2)
+          mu_prime = abs(lam2[k,l]/ omega2[k, l])
+          ukl = statmod::rinvgauss(1, mu_prime, lam2[k,l] ^ 2)
           tau2[k, l] = 1 / ukl
           tau2[l, k] = 1 / ukl
         }
@@ -97,13 +96,13 @@ gibbs_shotgun = function(N,
   # rpg function cannot be applied to "integer" type parameters!!!
   # h>0
   WPG = list(wpg)
-  if (r > 0) {
-    z = matrix(stats::rnorm(N * r), r, N)
-    Z = list(z)
-  } else{
-    z = matrix(0, 2, N)
-    Z = list(z)
-  }
+  # if (r > 0) {
+  #   z = matrix(stats::rnorm(N * r), r, N)
+  #   Z = list(z)
+  # } else{
+  #   z = matrix(0, 2, N)
+  #   Z = list(z)
+  # }
   if (reff) {
     gam = matrix(stats::rnorm(p * g), p, g)
   } else {
@@ -111,28 +110,28 @@ gibbs_shotgun = function(N,
     gam = matrix(0, p, g)
   }
   GAM = list(gam)
-  A1=NULL
-  A2=NULL
-  if (r > 0) {
-    alpha = matrix(stats::rnorm(r * p), r, p)
-    ALPHA = list(alpha)
-    delta = stats::rgamma(r, 2, 1)
-    tau = cumprod(delta)
-    TAU = tau
-    phi = matrix(stats::rgamma(r * p, nu / 2, nu / 2), r, p) # r*p
-    PHI = list(phi)
-    if (a1a2=='hp'){
-      a1 = stats::rgamma(1,2, 1)
-      a2 = stats::rgamma(1,2, 1)
-    }
-  } else{
-    A1=NULL
-    A2=NULL
-    TAU=NULL
-    PHI=NULL
-    alpha = matrix(0, 2, p)
-    ALPHA = list(alpha)
-  }
+  # A1=NULL
+  # A2=NULL
+  # if (r > 0) {
+  #   alpha = matrix(stats::rnorm(r * p), r, p)
+  #   ALPHA = list(alpha)
+  #   delta = stats::rgamma(r, 2, 1)
+  #   tau = cumprod(delta)
+  #   TAU = tau
+  #   phi = matrix(stats::rgamma(r * p, nu / 2, nu / 2), r, p) # r*p
+  #   PHI = list(phi)
+  #   if (a1a2=='hp'){
+  #     a1 = stats::rgamma(1,2, 1)
+  #     a2 = stats::rgamma(1,2, 1)
+  #   }
+  # } else{
+  #   A1=NULL
+  #   A2=NULL
+  #   TAU=NULL
+  #   PHI=NULL
+  #   alpha = matrix(0, 2, p)
+  #   ALPHA = list(alpha)
+  # }
   if (reff) {
     nl = sapply(1:g, function(x) {
       sum(grouplabel == x)
@@ -155,8 +154,8 @@ gibbs_shotgun = function(N,
   phi_pi = stats::rgamma(q1, t0, u0)
   PHI_PI = phi_pi
   # sampling
-  ACC1 = rep(0, niter)
-  ACC2 = rep(0, niter)
+  # ACC1 = rep(0, niter)
+  # ACC2 = rep(0, niter)
   for (it in 2:niter) {
     if (verbose){
       print(it)
@@ -169,7 +168,7 @@ gibbs_shotgun = function(N,
       Clist = lapply(nl, function(x) {
         chol2inv(chol(x * diag(phi_eps, nrow = p) + omega2))
       }) # list of covariance matrices
-      diff = psi - t(alpha) %*% z - t(X %*% beta) - matrix(rep(tlr_marker_len, N),ncol = N, byrow = F) # the matrix is p*N, each column is a sample
+      diff = psi - t(X %*% beta) - matrix(rep(tlr_marker_len, N),ncol = N, byrow = F) # the matrix is p*N, each column is a sample
       groupdiff = sapply(1:g, function(x) {
         rowSums(as.matrix(diff[, grouplabel == x]))
       }) # p*g
@@ -184,7 +183,7 @@ gibbs_shotgun = function(N,
       }
     }
     # update phi_eps (parallel)
-    err = psi - gam[, grouplabel] - t(alpha) %*% z - t(X %*% beta) # p*N, each col is a sample
+    err = psi - gam[, grouplabel]  - t(X %*% beta) # p*N, each col is a sample
     ess=apply(err,1,function(x){
       x=x[x!=0]
       lx2=2*log(abs(x))
@@ -215,9 +214,9 @@ gibbs_shotgun = function(N,
         omegatau = update_omega_tau(S2, lam2, g, omega2, tau2)
         omega2 = omegatau[[1]]
         tau2 = omegatau[[2]]
-        if (lambda_fixed<=0){
-          lam2 = stats::rgamma(1, 1 + p * (p + 1) / 2, 0.01 + exp(logsumexp(log(abs(omega2)))-log(2)))
-        }
+        # if (lambda_fixed<=0){
+        #   lam2 = stats::rgamma(1, 1 + p * (p + 1) / 2, 0.01 + exp(logsumexp(log(abs(omega2)))-log(2)))
+        # }
         OMEGA2[[it]] = omega2
         LAM2[[it]] = lam2
       }
@@ -226,7 +225,7 @@ gibbs_shotgun = function(N,
     C = 1 / apply(wpg, 2, function(x) {
       x + phi_eps
     }) # p*N
-    b = kappa + apply(t(alpha) %*% z + gam[, grouplabel] + t(X %*% beta) + matrix(rep(tlr_marker_len, N),ncol = N, byrow=F), 2, function(x) {
+    b = kappa + apply(gam[, grouplabel] + t(X %*% beta) + matrix(rep(tlr_marker_len, N),ncol = N, byrow=F), 2, function(x) {
       x * phi_eps
     }) # p*N
     m = C * b
@@ -243,91 +242,91 @@ gibbs_shotgun = function(N,
     if (!save_alpha_only) {
       WPG[[it]] = wpg
     }
-    if (r > 0) {
-      # update z
-      C = chol2inv(chol(alpha %*% diag(phi_eps) %*% t(alpha) + diag(r))) # universal C, unavoidable matrix inversion. Use chol to ensure symmetry.
-      m = C %*% alpha %*% (diag(phi_eps) %*% (psi - gam[, grouplabel] -
-                                                t(X %*% beta))) # r*N
-      z = apply(m, 2, function(x) {
-        mvtnorm::rmvnorm(1, x, C)
-      }) #r*N
-      z = matrix(z, r, N)
-      if (!save_alpha_only) {
-        Z[[it]] = t(z)
-      }
-      # update alpha
-      alpha = matrix(0, r, p)
-      for (j in 1:p) {
-        D = diag(phi[, j] * tau, nrow = r)
-        C = chol2inv(chol(D + phi_eps[j] * z %*% t(z))) # unavoidable matrix inversion
-        m = phi_eps[j] * C %*% z %*% matrix(psi[j, ] - gam[j, grouplabel] -
-                                              X %*% beta[, j], ncol = 1)
-        alpha[, j] = mvtnorm::rmvnorm(1, m, C)
-      }
-      if (!save_alpha_only) {
-        ALPHA[[it]] = alpha
-      }
+    # if (r > 0) {
+    #   # update z
+    #   C = chol2inv(chol(alpha %*% diag(phi_eps) %*% t(alpha) + diag(r))) # universal C, unavoidable matrix inversion. Use chol to ensure symmetry.
+    #   m = C %*% alpha %*% (diag(phi_eps) %*% (psi - gam[, grouplabel] -
+    #                                             t(X %*% beta))) # r*N
+    #   z = apply(m, 2, function(x) {
+    #     mvtnorm::rmvnorm(1, x, C)
+    #   }) #r*N
+    #   z = matrix(z, r, N)
+    #   if (!save_alpha_only) {
+    #     Z[[it]] = t(z)
+    #   }
+    #   # update alpha
+    #   alpha = matrix(0, r, p)
+    #   for (j in 1:p) {
+    #     D = diag(phi[, j] * tau, nrow = r)
+    #     C = chol2inv(chol(D + phi_eps[j] * z %*% t(z))) # unavoidable matrix inversion
+    #     m = phi_eps[j] * C %*% z %*% matrix(psi[j, ] - gam[j, grouplabel] -
+    #                                           X %*% beta[, j], ncol = 1)
+    #     alpha[, j] = mvtnorm::rmvnorm(1, m, C)
+    #   }
+      # if (!save_alpha_only) {
+      #   ALPHA[[it]] = alpha
+      # }
       # update phi (in the prior of alpha)
-      gampara2 = nu/2 + exp(sweep(log(abs(alpha))*2,1,log(tau),"+"))/2 # r*p
-      phi = apply(gampara2, 1:2, function(x) {
-        stats::rgamma(1, (nu + 1) / 2, x)
-      })
-      if (!save_alpha_only) {
-        PHI[[it]] = phi
-      }
+      # gampara2 = nu/2 + exp(sweep(log(abs(alpha))*2,1,log(tau),"+"))/2 # r*p
+      # phi = apply(gampara2, 1:2, function(x) {
+      #   stats::rgamma(1, (nu + 1) / 2, x)
+      # })
+      # if (!save_alpha_only) {
+      #   PHI[[it]] = phi
+      # }
       # update tau
       # update delta1
       # gampara2 = sum(c(1, cumprod(delta[-1])) * rowSums(phi * alpha ^ 2)) /2 + 1
-      gampara2=exp(logsumexp(c(0, cumsum(log(delta[-1])))+ apply(log(phi)+2*log(abs(alpha)),1,logsumexp)-log(2)))+1
-      delta[1] = stats::rgamma(1, a1 + p * r / 2, gampara2)
-      # update delta 2-r
-      if (r > 1) {
-        for (h in 2:r) {
-          taulh = prod(delta[1:(h - 1)])
-          # s = taulh * sum(phi[h, ] * alpha[h, ] ^ 2)
-          s = taulh * exp(logsumexp(log(phi[h, ]) +2*log(abs(alpha[h, ]))))
-          if (r > h) {
-            for (l in (h + 1):r) {
-              taulh = taulh * delta[l]
-              # s = s + taulh * sum(phi[l, ] * alpha[l, ] ^ 2)
-              s = s + taulh * exp(logsumexp(log(phi[l, ]) +2*log(abs(alpha[l, ]))))
-            }
-          }
-          gampara2 = 1 + s / 2
-          delta[h] = stats::rgamma(1, a2 + p * (r - h + 1) / 2, gampara2)
-        }
-      }
-      # tau = cumprod(delta)
-      tau = exp(cumsum(log(delta)))
-      if (!save_alpha_only) {
-        TAU = cbind(TAU, tau)
-      }
+      # gampara2=exp(logsumexp(c(0, cumsum(log(delta[-1])))+ apply(log(phi)+2*log(abs(alpha)),1,logsumexp)-log(2)))+1
+      # delta[1] = stats::rgamma(1, a1 + p * r / 2, gampara2)
+      # # update delta 2-r
+      # if (r > 1) {
+      #   for (h in 2:r) {
+      #     taulh = prod(delta[1:(h - 1)])
+      #     # s = taulh * sum(phi[h, ] * alpha[h, ] ^ 2)
+      #     s = taulh * exp(logsumexp(log(phi[h, ]) +2*log(abs(alpha[h, ]))))
+      #     if (r > h) {
+      #       for (l in (h + 1):r) {
+      #         taulh = taulh * delta[l]
+      #         # s = s + taulh * sum(phi[l, ] * alpha[l, ] ^ 2)
+      #         s = s + taulh * exp(logsumexp(log(phi[l, ]) +2*log(abs(alpha[l, ]))))
+      #       }
+      #     }
+      #     gampara2 = 1 + s / 2
+      #     delta[h] = stats::rgamma(1, a2 + p * (r - h + 1) / 2, gampara2)
+      #   }
+      # }
+      # # tau = cumprod(delta)
+      # tau = exp(cumsum(log(delta)))
+      # if (!save_alpha_only) {
+      #   TAU = cbind(TAU, tau)
+      # }
       # update a1 with MH, proposal distr: prior
-      if (a1a2=='hp'){
-        at = stats::rgamma(1, 2, 1) # choice of hyperparameter is from Dunson 2011
-        # acc = min(1, gamma(a1) / gamma(at) * delta[1] ^ (at - a1))
-        acc=exp(min(0,lgamma(a1)-lgamma(at)+(at-a1)*log(delta[1])))
-        u = stats::runif(1)
-        if (u < acc) {
-          a1 = at
-          if (!save_alpha_only) {
-            ACC1[it] = 1
-          }
-        }
-        A1=c(A1,a1)
-        # update a2 with MH
-        at = stats::rgamma(1, 2, 1)
-        acc = exp(min(0, (sum(log(delta[-1])) * at - (r - 1) * lgamma(at)) - (sum(log(delta[-1])) * a2 - (r - 1) * lgamma(a2))))
-        u = stats::runif(1)
-        if (u < acc) {
-          a2 = at
-          if (!save_alpha_only) {
-            ACC2[it] = 1
-          }
-        }
-        A2=c(A2,a2)
-      }
-    }
+    #   if (a1a2=='hp'){
+    #     at = stats::rgamma(1, 2, 1) # choice of hyperparameter is from Dunson 2011
+    #     # acc = min(1, gamma(a1) / gamma(at) * delta[1] ^ (at - a1))
+    #     acc=exp(min(0,lgamma(a1)-lgamma(at)+(at-a1)*log(delta[1])))
+    #     u = stats::runif(1)
+    #     if (u < acc) {
+    #       a1 = at
+    #       if (!save_alpha_only) {
+    #         ACC1[it] = 1
+    #       }
+    #     }
+    #     A1=c(A1,a1)
+    #     # update a2 with MH
+    #     at = stats::rgamma(1, 2, 1)
+    #     acc = exp(min(0, (sum(log(delta[-1])) * at - (r - 1) * lgamma(at)) - (sum(log(delta[-1])) * a2 - (r - 1) * lgamma(a2))))
+    #     u = stats::runif(1)
+    #     if (u < acc) {
+    #       a2 = at
+    #       if (!save_alpha_only) {
+    #         ACC2[it] = 1
+    #       }
+    #     }
+    #     A2=c(A2,a2)
+    #   }
+    # }
     # update beta1 then pi1
     for (k in 1:p) {
       for (j in 1:q1) {
@@ -336,7 +335,7 @@ gibbs_shotgun = function(N,
         ls1=-logsumexp(c(log(phi_pi[j]),log(N1)+log(phi_eps[k])))/2
         s1=exp(ls1)
         b1 = phi_eps[k] * sum(Xtest[, j] * (
-            t(psi)[, k] - t(gam[, grouplabel])[, k] - t(z) %*% alpha[, k] - Xadjust %*%
+            t(psi)[, k] - t(gam[, grouplabel])[, k] - Xadjust %*%
               matrix(as.vector(beta2[, k]), ncol = 1) - tlr_marker_len[k]
           ))
         # prob0 = (1 - pi1[j, k]) / (1 - pi1[j, k] + pi1[j, k] * s1 * sqrt(phi_pi[j]) * exp(b1 ^ 2 * s1 ^ 2 / 2))
@@ -360,7 +359,7 @@ gibbs_shotgun = function(N,
     PI1[[it]] = pi1
     # update beta2
     invXTX = chol2inv(chol(t(Xadjust) %*% Xadjust)) # unavoidable matrix inversion
-    m_common = invXTX %*% t(Xadjust) %*% (t(psi) -t(z) %*% alpha - t(gam[, grouplabel]) - Xtest %*% beta1 - matrix(rep(tlr_marker_len, N),nrow = N, byrow = T))
+    m_common = invXTX %*% t(Xadjust) %*% (t(psi) - t(gam[, grouplabel]) - Xtest %*% beta1 - matrix(rep(tlr_marker_len, N),nrow = N, byrow = T))
     m = m_common %*% diag(phi_eps / (phi_eps + 1 / N / gprior_m)) # q2*p
     beta2 = t(mvtnorm::rmvnorm(p, rep(0, q2), invXTX)) %*% diag(1 / sqrt(phi_eps +
                                                                            1 / N / gprior_m)) + m # q2*p
@@ -385,24 +384,24 @@ gibbs_shotgun = function(N,
   if (!save_alpha_only) {
     return(
       list(
-        ALPHA = ALPHA,
+        # ALPHA = ALPHA,
         BETA1 = BETA1,
         BETA2 = BETA2,
-        Z = Z,
+        # Z = Z,
         GAM = GAM,
         PSI = PSI,
         PHI_EPS = PHI_EPS,
         PHI_GAM = PHI_GAM,
         OMEGA2 = OMEGA2,
-        ACC1 = ACC1,
-        ACC2 = ACC2,
+        # ACC1 = ACC1,
+        # ACC2 = ACC2,
         PHI_PI = PHI_PI,
         PI1 = PI1,
-        LAM2 = LAM2,
-        A1=A1,
-        A2=A2,
-        TAU=TAU,
-        PHI=PHI
+        LAM2 = LAM2
+        # A1=A1,
+        # A2=A2,
+        # TAU=TAU,
+        # PHI=PHI
       )
     )
   } else{
@@ -444,16 +443,17 @@ rpg0 = function(h, z) {
   return(x)
 }
 
-# update omega with BGLA prior
+# update omega with graphical lasso prior
 update_omega_tau = function(S, lambda, nsim, omega, tau) {
+  # lambda is a matrix
   p = nrow(S)
   for (k in 1:p) {
     #(b)
     s22 = S[k, k]
-    gam = stats::rgamma(1, nsim / 2 + 1, (s22 + lambda) / 2)
+    gam = stats::rgamma(1, nsim / 2 + 1, (s22 + lambda[k,k]) / 2)
     Dtau = diag(tau[-k, k])
     omega11 = omega[-k, -k]
-    C = chol2inv(chol((s22 + lambda) * chol2inv(chol(omega11)) + chol2inv(chol(Dtau))))
+    C = chol2inv(chol((s22 + lambda[k,k]) * chol2inv(chol(omega11)) + chol2inv(chol(Dtau))))
     s21 = S[-k, k]
     beta_mean = -C %*% s21
     be = mvtnorm::rmvnorm(1, beta_mean, C)
@@ -465,8 +465,8 @@ update_omega_tau = function(S, lambda, nsim, omega, tau) {
   # step2
   for (l in 2:p) {
     for (k in 1:(l - 1)) {
-      mu_prime = sqrt(lambda ^ 2 / omega[k, l] ^ 2)
-      ukl = statmod::rinvgauss(1, mu_prime, lambda ^ 2)
+      mu_prime = sqrt(lambda[k,l] ^ 2 / omega[k, l] ^ 2)
+      ukl = statmod::rinvgauss(1, mu_prime, lambda[k,l] ^ 2)
       tau[k, l] = 1 / ukl
       tau[l, k] = 1 / ukl
     }
