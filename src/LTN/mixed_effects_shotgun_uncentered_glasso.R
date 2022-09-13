@@ -17,7 +17,7 @@
 #' @param lambda_fixed if >0, use this as the fixed value of lambda; if <=0, adopt a Gamma hyperprior on lambda
 #' @param tlr_marker_len tlr_T(marker length)
 #' @export
-gibbs_shotgun = function(N,
+gibbs_shotgun_lambdamat = function(N,
                             p,
                             g = NULL,
                             YL,

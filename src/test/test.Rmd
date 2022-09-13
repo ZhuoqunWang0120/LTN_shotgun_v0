@@ -1,29 +1,36 @@
 ---
-title: "Untitled"
-output: github_document
+title: "Report 09/15/2022"
+author: Zhuoqun Wang
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
+```  
 
-## GitHub Documents
+## tl; dr  
+- In this report we show the identifiability issue arised in the uncentered parametrization of the mixed-effects model for marker counts through a simple simulation example.   
+- We tested whether the centered parametrization can alleviate the identifiability issue on the same toy example  
+- The identifiability issue might not affect the hypothesis testing results, but the inference on $\Omega$ could be problematic.   
+- We implemented and tested the sampler that allows distinct element-wise shrinkage in the graphical lasso prior
 
-This is an R Markdown format used for publishing markdown documents to GitHub. When you click the **Knit** button all R code chunks are run and a markdown file (.md) suitable for publishing to GitHub is generated.
 
-## Including Code
+## Model formulation
 
-You can include R code in the document as follows:
+\textcolor{red}{Add model formulation here}
 
-```{r cars}
-summary(cars)
-```
+## A toy example  
+\textcolor{red}{Describe simulation setting here}
 
-## Including Plots
+Generate data from LTN  
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r simulation}
+```  
+
+```{r gibbs sampling}
+```  
+
+```{r posterior}
+```  
+
