@@ -1,5 +1,5 @@
-# source('src/LTN/mixed_effects_shotgun.R')
-source('src/LTN/mixed_effects_shotgun_uncentered_glasso.R')
+source('src/LTN/mixed_effects_shotgun.R')
+# source('src/LTN/mixed_effects_shotgun_uncentered_glasso.R')
 source('src/LTN/utils.R')
 library(ape)
 library(mvtnorm)
@@ -54,23 +54,26 @@ YL = do.call(rbind,lapply(yyl,function(x)x$YL))
 lambda_mat = matrix(rep(10, d^2),d,d)
 # diag(lambda_mat) = rep(0.00001, d)
 # fit model
+niter = 1000
 g1 = gibbs_shotgun(N = N,
                    p = d,
                    g = g,
                    YL = YL,
                    Y = Y,
+                   r = 0,
                    tlr_marker_len = tlr_marker_len,
                    Xtest = Xtest,
                    Xadjust = Xadjust,
                    adjust = T,
                    grouplabel = refflabel,
-                   niter = 2000,
+                   niter = niter,
                    reff = T,
                    gprior_m = 100,
                    reffcov = 2,
-                   lambda_fixed = lambda_mat,
-                   # lambda_fixed = 10,
+                   # lambda_fixed = lambda_mat,
+                   lambda_fixed = 10,
                    verbose = T)
+save.image(file = 'cache/shotgun_metagenomics/confounded_original.RData')
 BETA1 = data.frame(do.call(rbind,g1$BETA1))
 PMAP = apply(abs(BETA1) > .Machine$double.xmin, 2, mean)
 PJAP = sum(apply(abs(BETA1) > .Machine$double.xmin, 1, sum) != 0)/nrow(BETA1)
@@ -81,10 +84,24 @@ library(reshape2)
 BETA1[,'iteration'] = 1:nrow(BETA1)
 ggplot(melt(BETA1, id.vars = 'iteration')) + geom_line(aes(x = iteration, y = value)) + facet_wrap(~variable)
 BETA2_mean = Reduce('+',g1$BETA2)/length(g1$BETA2)
-print(BETA2_mean)
+print(round(BETA2_mean,1)) # only the coef of the column of 1's seem to be problematic
+INTERCEPT = do.call(rbind,lapply(g1$BETA2, function(x){x[1,]}))
+GAMMA = g1$GAM
+GAMMA1 = do.call(rbind,lapply(GAMMA, function(x){x[,1]}))
+MEAN1 = INTERCEPT + BETA1[,-6] + GAMMA1
+matplot(INTERCEPT)
+matplot(BETA1[,-6])
+matplot(MEAN1, type = 'l')
+matplot(GAMMA1)
 OMEGA = g1$OMEGA2
 omega_post = Reduce('+', OMEGA)/length(OMEGA)
 round(omega_post,1)
 plot(unlist(lapply(OMEGA,function(x){x[1,1]})),type='l')
+# test
+dimnames(GAMMA1) = list(1:nrow(GAMMA1),paste0('node ',1:5))
+matplot(rownames(GAMMA1), GAMMA1, type='l', col=1:5, xlab = 'iteration', ylab = 'value')
+legend('bottomright', legend=colnames(GAMMA1), 
+                            pch=0.5, horiz=F, col=1:5)
+
 # why is omega[1,1] so weird when lambda_ii are small, but normal(but biased) when lambda==10?
 # check whether all lambda = 10 in the new implementation yield similar result as the previous one
