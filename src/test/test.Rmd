@@ -122,7 +122,7 @@ BETA1[,'iteration'] = 1:nrow(BETA1)
 ggplot(melt(BETA1, id.vars = 'iteration')) + 
 geom_line(aes(x = iteration, y = value)) + 
 facet_wrap(~variable) + 
-geom_hline(data = data.frame(t(beta1)), aes(yintercept = `t.beta1.`, color = 'red')) +
+geom_hline(data = data.frame(t(beta1)), aes(yintercept = `t.beta1.`, color = 'red')) 
 
 
 ```  
