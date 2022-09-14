@@ -35,8 +35,6 @@ set.seed(1)
 N = 200
 d = 5
 tree = rtree(d + 1)
-taxa_abundance = c(1,1,1,1,1,1)
-taxa_abundance = taxa_abundance/sum(taxa_abundance)
 taxa_marker_len = c(1,1,1,1,1,1)
 tlr = function(x, tree){
   yyl = count2y(x,tree)
@@ -83,7 +81,7 @@ YL = do.call(rbind,lapply(yyl,function(x)x$YL))
 Fit the mixed-effects model with uncentered paramtrization to the data   
 ```{r gibbs sampling, cache = TRUE}
 lambda_mat = matrix(rep(10, d^2),d,d)
-niter = 20
+niter = 500
 g1 = gibbs_shotgun_lambdamat(N = N,
                    p = d,
                    g = g,
@@ -100,16 +98,16 @@ g1 = gibbs_shotgun_lambdamat(N = N,
                    reffcov = 2,
                    lambda_fixed = lambda_mat,
                    # lambda_fixed = 10,
-                   verbose = T)
+                   verbose = F)
 ```  
 
 Mixing & Posterior inference   
 PJAP & PMAPs
 ```{r pjap pmap}
 burnin = niter/2 + 1
-BETA1 = data.frame(do.call(rbind,g1$BETA1))
-PMAP = apply(abs(BETA1) > .Machine$double.xmin, 2, mean)
-PJAP = sum(apply(abs(BETA1) > .Machine$double.xmin, 1, sum) != 0)/nrow(BETA1)
+beta1_samples = data.frame(do.call(rbind,g1$BETA1))
+PMAP = apply(abs(beta1_samples) > .Machine$double.xmin, 2, mean)
+PJAP = sum(apply(abs(beta1_samples) > .Machine$double.xmin, 1, sum) != 0)/nrow(beta1_samples)
 cat('PMAP', PMAP,'\n')
 cat('PJAP', PJAP,'\n')
 ```  
@@ -118,12 +116,53 @@ traceplots
 ```{r traceplot}
 library(ggplot2)
 library(reshape2)
-BETA1[,'iteration'] = 1:nrow(BETA1)
-ggplot(melt(BETA1, id.vars = 'iteration')) + 
+# alpha
+beta1_samples[,'iteration'] = 1:nrow(beta1_samples)
+ggplot(melt(beta1_samples, id.vars = 'iteration')) + 
 geom_line(aes(x = iteration, y = value)) + 
 facet_wrap(~variable) + 
-geom_hline(data = data.frame(t(beta1)), aes(yintercept = `t.beta1.`, color = 'red')) 
+geom_hline(data = data.frame(t(beta1)), aes(yintercept = `t.beta1.`, color = 'true value'))  + 
+ggtitle('traceplot of alpha')
+# beta intercept
+intercept_samples = data.frame(do.call(rbind,lapply(g1$BETA2, function(x){x[1,]})))
+intercept_samples[,'iteration'] = 1:nrow(intercept_samples)
+ggplot(melt(intercept_samples, id.vars = 'iteration')) + 
+geom_line(aes(x = iteration, y = value)) + 
+facet_wrap(~variable) + 
+geom_hline(aes(yintercept = -1, color = 'true value'))  + 
+ggtitle('traceplot of beta[1,]')
 
+# gamma random effects
+gamma_samples = g1$GAM
+gamma_samples = data.frame(do.call(rbind,lapply(gamma_samples, function(x){x[,1]}))) # subgroup 1
+gamma_samples[,'iteration'] = 1:nrow(gamma_samples)
+ggplot(melt(gamma_samples, id.vars = 'iteration')) + 
+geom_line(aes(x = iteration, y = value)) + 
+geom_hline(data = data.frame(variable = paste0('X',1:5), value = gam[,1]),aes(yintercept = `value`, color = 'true value'))  + 
+facet_wrap(~variable) + 
+ggtitle('traceplot of gamma[,1]')
 
+# mean of subgroup 1 without alpha
+mean_samples = intercept_samples[,-ncol(intercept_samples)] + gamma_samples[,-ncol(gamma_samples)]
+mean_samples$iteration = 1:nrow(mean_samples)
+ggplot(melt(mean_samples, id.vars = 'iteration')) + 
+geom_line(aes(x = iteration, y = value))  + 
+geom_line(aes(x = iteration, y = value)) + 
+geom_hline(data = data.frame(variable = paste0('X',1:5), value = -1 + gam[,1]),aes(yintercept = `value`, color = 'true value'))  + 
+facet_wrap(~variable) + 
+ggtitle('traceplot of beta[1,] + gamma[,1]')
+
+# mean of subgroup 4 with alpha
+gamma_samples = g1$GAM
+gamma_samples = data.frame(do.call(rbind,lapply(gamma_samples, function(x){x[,4]}))) # subgroup 4
+gamma_samples[,'iteration'] = 1:nrow(gamma_samples)
+mean_samples = intercept_samples[,-ncol(intercept_samples)] + gamma_samples[,-ncol(gamma_samples)] + beta1_samples[,-ncol(beta1_samples)]
+mean_samples$iteration = 1:nrow(mean_samples)
+ggplot(melt(mean_samples, id.vars = 'iteration')) + 
+geom_line(aes(x = iteration, y = value)) + 
+geom_line(aes(x = iteration, y = value)) + 
+geom_hline(data = data.frame(variable = paste0('X',1:5), value = gam[,4]),aes(yintercept = `value`, color = 'true value'))  + 
+facet_wrap(~variable) + 
+ggtitle('traceplot of beta[1,] + gamma[,1] + alpha')
 ```  
 
